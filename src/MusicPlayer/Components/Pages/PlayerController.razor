@@ -1,10 +1,9 @@
-﻿@page "/"
-@using AudioLibrary.Device
+﻿@using AudioLibrary.Device
 @using AudioLibrary.Errors
 @using AudioLibrary.SoundPlayer
 @using AudioLibrary.Wave
 
-<h1>Hello, world!</h1>
+<InputFile OnChange="LoadFiles" accept=".wav, .wave">Load a wave file</InputFile>
 <br/>
 <button @onclick="Play">Play</button>
 <button @onclick="Pause">Pause</button>
@@ -45,9 +44,6 @@
 
         var waveAudio = new WaveFile(fileInfo.FullName);
 
-        //var audioDevice = new AudioDevice(null);   // equivalent to DefaultAudioDevice
-        //var audioDevice = new AudioDevice("");     // equivalent to DefaultAudioDevice
-
         var audioDevice = new DefaultAudioDevice(alcAudioErrorsManagerFactory);
         _soundPlayer = new SoundPlayer(audioDevice, new AlAudioErrorsManager());
         _soundPlayer.Open(waveAudio);
@@ -56,28 +52,6 @@
     private void Play()
     {
         _soundPlayer.Play();
-
-        // Task.Run(() =>
-        // {
-        //     while (soundPlayer.GetSourceState() == SourceState.Playing)
-        //     {
-        //         Console.WriteLine("Playing");
-        //     }
-        // });
-
-        // Thread.Sleep(5000);
-        // Console.WriteLine("Position: " + soundPlayer.Position);
-        // soundPlayer.Pause();
-        // Thread.Sleep(5000);
-        // Console.WriteLine("Position: " + soundPlayer.Position);
-        // soundPlayer.Play();
-        // Console.WriteLine("Position: " + soundPlayer.Position);
-        // Thread.Sleep(5000);
-        // soundPlayer.Stop();
-        // Console.WriteLine("Position: " + soundPlayer.Position);
-        // soundPlayer.Close();
-        // Console.WriteLine("Position: " + soundPlayer.Position);
-        // soundPlayer.ShutDown();
     }
 
     private void Pause()
@@ -88,5 +62,12 @@
     private void Stop()
     {
         _soundPlayer.Stop();
+    }
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        await using FileStream fs = new(e.File.Name, FileMode.Create);
+        // await browserFile.OpenReadStream().CopyToAsync(fs);
+        // var file = e.File.OpenReadStream().ReadAsync();
     }
 }

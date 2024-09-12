@@ -29,7 +29,7 @@ public class ChannelSplitter : IChannelSplitter
         var outputs = new List<List<byte>>();
         for (var i = 0; i < channels; i++)
         {
-            outputs.Add(new List<byte>());
+            outputs.Add([]);
         }
 
         return outputs;
