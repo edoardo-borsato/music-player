@@ -3,7 +3,7 @@
 @using AudioLibrary.SoundPlayer
 @using AudioLibrary.Wave
 
-<InputFile OnChange="LoadFiles" accept=".wav, .wave">Load a wave file</InputFile>
+<InputFile OnChange="LoadFilesAsync" accept=".wav, .wave">Load a wave file</InputFile>
 <br/>
 <button @onclick="Play">Play</button>
 <button @onclick="Pause">Pause</button>
@@ -12,41 +12,20 @@
 @code
 {
     private ISoundPlayer _soundPlayer = null!;
+    private WaveFile? _currentFile;
 
     protected override void OnInitialized()
     {
-        const string wavFilePath = @"D:\sample.wav";
-        var fileInfo = new FileInfo(wavFilePath);
         var alcAudioErrorsManagerFactory = new AlcAudioErrorsManagerFactory();
         var oadFinder = new OutputAudioDevicesFinder(alcAudioErrorsManagerFactory);
         var cadFinder = new CaptureDevicesFinder(alcAudioErrorsManagerFactory);
         var aadFinder = new AllAudioDevicesFinder(alcAudioErrorsManagerFactory);
-        Console.WriteLine("Output audio devices");
         var oad = oadFinder.GetAll();
-        foreach (var device in oad)
-        {
-            Console.WriteLine(device);
-        }
-
-        Console.WriteLine("Capture audio devices");
         var cad = cadFinder.GetAll();
-        foreach (var device in cad)
-        {
-            Console.WriteLine(device);
-        }
-
-        Console.WriteLine("All audio devices");
         var aad = aadFinder.GetAll();
-        foreach (var device in aad)
-        {
-            Console.WriteLine(device);
-        }
-
-        var waveAudio = new WaveFile(fileInfo.FullName);
 
         var audioDevice = new DefaultAudioDevice(alcAudioErrorsManagerFactory);
         _soundPlayer = new SoundPlayer(audioDevice, new AlAudioErrorsManager());
-        _soundPlayer.Open(waveAudio);
     }
 
     private void Play()
@@ -64,10 +43,26 @@
         _soundPlayer.Stop();
     }
 
-    private async Task LoadFiles(InputFileChangeEventArgs e)
+    private async Task LoadFilesAsync(InputFileChangeEventArgs e)
     {
-        await using FileStream fs = new(e.File.Name, FileMode.Create);
-        // await browserFile.OpenReadStream().CopyToAsync(fs);
-        // var file = e.File.OpenReadStream().ReadAsync();
+        if (_currentFile is not null)
+        {
+            _soundPlayer.Close();
+            await _currentFile.DisposeAsync();
+            _currentFile = null;
+        }
+
+        var stream = await GetFileStreamASync(e);
+        _currentFile = new WaveFile(stream);
+        _soundPlayer.Open(_currentFile);
+    }
+
+    private static async Task<MemoryStream> GetFileStreamASync(InputFileChangeEventArgs e)
+    {
+        const int maxAllowedSize = 1024 * 1024 * 100;
+        var stream = new MemoryStream();
+        await e.File.OpenReadStream(maxAllowedSize).CopyToAsync(stream);
+        stream.Position = 0;
+        return stream;
     }
 }

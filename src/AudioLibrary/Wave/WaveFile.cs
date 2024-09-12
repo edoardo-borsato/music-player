@@ -1,15 +1,22 @@
 ﻿namespace AudioLibrary.Wave;
 
-public class WaveFile
+// Spec:
+// - https://www.recordingblogs.com/wiki/wave-file-format
+// - https://www.mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
+// In wave files, data is stored little-endian. All information has to be word aligned (at every two bytes). If the audio data contains an odd number of bytes, it should be padded with a zero byte
+
+public class WaveFile : IDisposable
 {
+    private readonly Stream? _stream;
     public TimeSpan Duration { get; private set; }
-    public RiffHeader RiffHeader { get; private set; }
-    public FmtSubChunk FmtSubChunk { get; private set; }
-    public DataChunk DataChunk { get; private set; }
+    public RiffHeader? RiffHeader { get; private set; }
+    public FmtSubChunk? FormatChunk { get; private set; }
+    public DataChunk? DataChunk { get; private set; }
     public SoundFormat SoundFormat { get; private set; }
 
     public WaveFile(Stream stream)
     {
+        _stream = stream;
         ArgumentNullException.ThrowIfNull(stream);
 
         ParseStream(stream);
@@ -23,20 +30,30 @@ public class WaveFile
     {
     }
 
+    public void Dispose() => _stream?.Dispose();
+
+    public async Task DisposeAsync()
+    {
+        if (_stream is not null)
+        {
+            await _stream.DisposeAsync();
+        }
+    }
+
     #region Utility Methods
 
     private void ParseStream(Stream stream)
     {
         using var reader = new BinaryReader(stream);
         var riffHeader = GetRiffHeader(reader);
-        var (fmtSubChunk, soundFormat) = GetFmtSubChunk(reader);
+        var (formatChunk, soundFormat) = GetFormatChunk(reader);
         var dataChunk = GetDataChunk(reader);
 
         RiffHeader = riffHeader;
-        FmtSubChunk = fmtSubChunk;
+        FormatChunk = formatChunk;
         DataChunk = dataChunk;
         SoundFormat = soundFormat;
-        Duration = TimeSpan.FromSeconds(DataChunk.Data.Length / (float)FmtSubChunk.ByteRate);
+        Duration = TimeSpan.FromSeconds(DataChunk.Data.Length / (float)FormatChunk.ByteRate);
     }
 
     private static RiffHeader GetRiffHeader(BinaryReader reader)
@@ -63,7 +80,7 @@ public class WaveFile
         };
     }
 
-    private static (FmtSubChunk fmtSubChunk, SoundFormat soundFormat) GetFmtSubChunk(BinaryReader reader)
+    private static (FmtSubChunk fmtSubChunk, SoundFormat soundFormat) GetFormatChunk(BinaryReader reader)
     {
         var formatSignature = new string(reader.ReadChars(4));
         if (formatSignature != "fmt ")
@@ -94,35 +111,36 @@ public class WaveFile
         return (fmtSubChunk, soundFormat);
     }
 
+    // TODO: add also other chunks like 'silent', 'fact' and so on...
     private static DataChunk GetDataChunk(BinaryReader reader)
     {
         var dataSignature = new string(reader.ReadChars(4));
         switch (dataSignature)
         {
             case "data":
-            {
-                var dataChunkSize = reader.ReadInt32();
-                var data = reader.ReadBytes((int)reader.BaseStream.Length);
-                return new DataSubChunk
                 {
-                    Signature = dataSignature,
-                    ChunkSize = dataChunkSize,
-                    Data = data
-                };
-            }
+                    var dataChunkSize = reader.ReadInt32();
+                    var data = reader.ReadBytes((int)reader.BaseStream.Length);
+                    return new DataSubChunk
+                    {
+                        Signature = dataSignature,
+                        ChunkSize = dataChunkSize,
+                        Data = data
+                    };
+                }
             case "LIST":
-            {
-                var listChunkSize = reader.ReadInt32();
-                var listTypeId = new string(reader.ReadChars(4));
-                var data = reader.ReadBytes((int)reader.BaseStream.Length);
-                return new ListSubChunk
                 {
-                    Signature = dataSignature,
-                    ChunkSize = listChunkSize,
-                    TypeId = listTypeId,
-                    Data = data
-                };
-            }
+                    var listChunkSize = reader.ReadInt32();
+                    var listTypeId = new string(reader.ReadChars(4));
+                    var data = reader.ReadBytes((int)reader.BaseStream.Length);
+                    return new ListSubChunk
+                    {
+                        Signature = dataSignature,
+                        ChunkSize = listChunkSize,
+                        TypeId = listTypeId,
+                        Data = data
+                    };
+                }
             default:
                 throw new NotSupportedException($"Specified wave file is not supported: {dataSignature}");
         }
