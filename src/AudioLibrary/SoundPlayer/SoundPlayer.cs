@@ -136,6 +136,12 @@ public class SoundPlayer : ISoundPlayer
         }
     }
 
+    public void AdjustVolume(float volume)
+    {
+        AL.Source(_sourceId, ALSourcef.Gain, volume);
+        _audioErrorsManager.ManageLastError();
+    }
+
     #region Utility Methods
 
     private void GenerateSource()
@@ -158,9 +164,9 @@ public class SoundPlayer : ISoundPlayer
 
     private void FillAudioDataBuffer(WaveFile waveFile)
     {
-        var soundData = waveFile.DataChunk.Data;
+        var soundData = waveFile.DataChunk!.Data;
         var alFormat = waveFile.SoundFormat.ToAlFormat();
-        var frequency = waveFile.FormatChunk.SampleRate;
+        var frequency = waveFile.FormatChunk!.SampleRate;
         var normalizedBufferSize = MakeBufferSizeAMultipleOf4Floor(soundData);
         var lastDataToSkip = soundData.Length - normalizedBufferSize;
         var normalizedSoundData = soundData.SkipLast(lastDataToSkip);
@@ -170,13 +176,13 @@ public class SoundPlayer : ISoundPlayer
 
     private void FillAudioDataBufferFromChannel(WaveFile waveFile, IChannelSplitter channelSplitter, int channelToOpen)
     {
-        var channels = waveFile.FormatChunk.Channels;
+        var channels = waveFile.FormatChunk!.Channels;
         if (channelToOpen >= channels)
         {
             throw new InvalidOperationException($"The channel to open must be a 0 based index less than {channels}");
         }
 
-        var soundData = waveFile.DataChunk.Data;
+        var soundData = waveFile.DataChunk!.Data;
         var channelsData = channelSplitter.Split(soundData, channels).ToList();
         var channelToOpenData = channelsData[channelToOpen].ToArray();
         var soundFormat = waveFile.FormatChunk.BitsPerSample == 8 ? SoundFormat.Mono8 : SoundFormat.Mono16;
@@ -210,8 +216,8 @@ public class SoundPlayer : ISoundPlayer
             {
                 AL.GetSource(_sourceId, ALGetSourcei.ByteOffset, out var byteOffset);
                 _audioErrorsManager.ManageLastError();
-                var completeDataLength = CurrentFile.DataChunk.Data.Length;
-                var channels = CurrentFile.FormatChunk.Channels;
+                var completeDataLength = CurrentFile.DataChunk!.Data.Length;
+                var channels = CurrentFile.FormatChunk!.Channels;
                 var bytesLength = _isOnlyOneChannelOpened ? completeDataLength / channels : completeDataLength;
                 position = byteOffset * CurrentFile.Duration / bytesLength;
             }

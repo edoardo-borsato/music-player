@@ -56,4 +56,9 @@ public interface ISoundPlayer
     /// Rewind the audio
     /// </summary>
     void Rewind();
+
+    /// <summary>
+    /// Adjust the volume
+    /// </summary>
+    void AdjustVolume(float volume);
 }
